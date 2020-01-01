@@ -79,7 +79,7 @@ void receiveI2CEvent(int numBytes);
 
 void setup() {
   Serial.begin(9600);
-  while(!Serial);
+//  while(!Serial);
 
 //  Wire.setClock(10000);
   Wire.begin(I2CADDRESS);
@@ -163,9 +163,9 @@ void loop() {
     outData.sensorData.out.relay       = digitalRead(RELAYPIN) == HIGH;
     // READ DATA
     #ifdef DEBUG_EVENT
-      Serial.print("DHT11, \t");
+      Serial.print("DHT22, \t");
     #endif
-    int chk = DHT.read11(DHTPIN);
+    int chk = DHT.read22(DHTPIN);
       switch (chk)
       {
         case DHTLIB_OK:  

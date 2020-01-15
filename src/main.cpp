@@ -1,49 +1,30 @@
 #include <Arduino.h>
 #include <Wire.h>
-
-//#define DEBUG_I2C_OUT
-//#define DEBUG_I2C_IN
-#define DEBUG_EVENT
+#include "Config.h"
 
 
 
-#define DHTPIN     PD7 
-#include <dht.h>
-dht DHT;
-
-#define RELAYPIN   PD6
-
-#define ENCODERSWPIN  PD5 
-#define ENCODERCLKPIN PD4
-#define ENCODERDTPIN  PD3
-
-/*
-#define ENCODER_USE_INTERRUPTS
-#include <Encoder.h>
-Encoder myEnc(ENCODERCLKPIN, ENCODERDTPIN);
-*/
-
-// ClickEncoder
-#include <ClickEncoder.h>
-//#include <TimerOne.h>
-//#include <Ticker.h>
-
-int16_t oldEncPos, encPos;
-uint8_t buttonState;
-
-#define STEPS 4
-
-// Analogici?!?
-ClickEncoder encoder(ENCODERCLKPIN, ENCODERDTPIN, ENCODERSWPIN, STEPS, LOW);
-void timerIsr() {
-  encoder.service();
-}
-
-//Ticker timerIsrTicker(timerIsr,1000,0,MICROS);
-// - ClickEncoder
+#ifdef HAS_DHT
+  #include <dht.h>
+  dht DHT;
+  float temperature[TEMP_COUNT];
+  int8_t tppos = 1;
+#endif
 
 
-#define I2CADDRESS 0x08 
+
+#ifdef HAS_ROTARY_ENCODER
+  #include <ClickEncoder.h>
+  int16_t oldEncPos, encPos;
+  uint8_t buttonState;
+
+
+  ClickEncoder encoder(ENCODERCLKPIN, ENCODERDTPIN, ENCODERSWPIN, STEPS, LOW);
+  void timerIsr() {
+    encoder.service();
+  }
+#endif 
+
 
 enum __attribute__((__packed__)) COMMAND {
   RELAY = 'R',
@@ -86,27 +67,25 @@ void setup() {
   Wire.onReceive(receiveI2CEvent);
   Wire.onRequest(requestI2CEvent);
 
-  // ClickEncoder
-//  Timer1.initialize(1000);
-//  Timer1.attachInterrupt(timerIsr);
-//  timerIsrTicker.start();
+  #ifdef HAS_ROTARY_ENCODER
+    encoder.setAccelerationEnabled(true);
 
-  encoder.setAccelerationEnabled(true);
+    Serial.print("Acceleration is ");
+    Serial.println((encoder.getAccelerationEnabled()) ? "enabled" : "disabled");
 
-  Serial.print("Acceleration is ");
-  Serial.println((encoder.getAccelerationEnabled()) ? "enabled" : "disabled");
-
-  oldEncPos = -1;
+    oldEncPos = -1;
+  #endif
   // End Click Encoder
-
-  pinMode(RELAYPIN,OUTPUT);
+  #ifdef HAS_RELAY
+    pinMode(RELAYPIN,OUTPUT);
+  #endif
 
 }
 
-unsigned long lastDHTRead;
 
 I2C_Packet_t outData;
 
+#ifdef HAS_ROTARY_ENCODER
 void loopClickEncoder() {
   encoder.service();
   encPos += encoder.getValue();
@@ -151,71 +130,60 @@ void loopClickEncoder() {
     }
   }
 }
+#endif
 
-#define TEMP_COUNT 5
-float temperature[TEMP_COUNT];
-int8_t tppos = 1;
+unsigned long lastRead;
 
 void loop() {
-  loopClickEncoder();
+  #ifdef HAS_ROTARY_ENCODER
+    loopClickEncoder();
+  #endif
 
-  if(millis() - lastDHTRead > 2000){
-    outData.sensorData.out.relay       = digitalRead(RELAYPIN) == HIGH;
-    // READ DATA
-    #ifdef DEBUG_EVENT
-      Serial.print("DHT22, \t");
+  if(millis() - lastRead > 2000){
+    #ifdef HAS_RELAY
+      outData.sensorData.out.relay       = digitalRead(RELAYPIN) == HIGH;
     #endif
-    int chk = DHT.read22(DHTPIN);
-      switch (chk)
-      {
-        case DHTLIB_OK:  
-          #ifdef DEBUG_EVENT
-            Serial.print("OK,\t"); 
-            Serial.print(DHT.humidity, 1);
-            Serial.print(",\t");
-            Serial.println(DHT.temperature, 1);
-          #endif
-          temperature[tppos] = DHT.temperature;
-          tppos=(tppos+1) % TEMP_COUNT;
-          if(temperature[0] != 0){
-            float avg = 0;
-            for(byte i=0; i < TEMP_COUNT;i++){
-              avg+=temperature[i];
+    // READ DATA
+    #ifdef HAS_DHT
+      #ifdef DEBUG_EVENT
+        Serial.print("DHT22, \t");
+      #endif
+      int chk = DHT.read22(DHTPIN);
+        switch (chk)
+        {
+          case DHTLIB_OK:  
+            #ifdef DEBUG_EVENT
+              Serial.print("OK,\t"); 
+              Serial.print(DHT.humidity, 1);
+              Serial.print(",\t");
+              Serial.println(DHT.temperature, 1);
+            #endif
+            temperature[tppos] = DHT.temperature;
+            tppos=(tppos+1) % TEMP_COUNT;
+            if(temperature[0] != 0){
+              float avg = 0;
+              for(byte i=0; i < TEMP_COUNT;i++){
+                avg+=temperature[i]+FIXED_CORRECTION;
+              }
+              outData.sensorData.out.temperature = avg / TEMP_COUNT; 
             }
-            outData.sensorData.out.temperature = avg / TEMP_COUNT; 
-          }
-//          outData.sensorData.out.temperature = DHT.temperature;
-          outData.sensorData.out.humidity    = DHT.humidity;
-          break;
-        #ifdef DEBUG_EVENT
-          case DHTLIB_ERROR_CHECKSUM: 
-            Serial.println("Checksum error,\t"); 
+            outData.sensorData.out.humidity    = DHT.humidity;
             break;
-          case DHTLIB_ERROR_TIMEOUT: 
-            Serial.println("Time out error,\t"); 
-            break;
-          default: 
-            Serial.println("Unknown error,\t"); 
-            break;
-       #endif
-      }
-    lastDHTRead = millis();
+          #ifdef DEBUG_EVENT
+            case DHTLIB_ERROR_CHECKSUM: 
+              Serial.println("Checksum error,\t"); 
+              break;
+            case DHTLIB_ERROR_TIMEOUT: 
+              Serial.println("Time out error,\t"); 
+              break;
+            default: 
+              Serial.println("Unknown error,\t"); 
+              break;
+        #endif
+        }
+    #endif
+    lastRead = millis();
   }
-
-/*
-  if(outData.sensorData.out.select && millis() - lastENCButtonRead > 5000){
-    outData.sensorData.out.select = false;
-  }
-
-  if(!outData.sensorData.out.select){
-     outData.sensorData.out.select = digitalRead(ENCODERSWPIN) == 0;
-     if(outData.sensorData.out.select)lastENCButtonRead = millis();
-  }
-  */
-
-  //outData.sensorData.out.encoder     = myEnc.read();
-
-  //delay(10);
 }
 
 #define OUT_BUFFER sizeof(I2C_Packet_t)
@@ -255,13 +223,15 @@ void receiveI2CEvent(int numBytes) {
     while(Wire.available())Wire.read();
 
     switch(inData.sensorData.in.cmd){
-      case RELAY:
-        #ifdef DEBUG_EVENT
-          Serial.print("Relay PIN:");
-          Serial.print(inData.sensorData.in.relay?"HIGH":"LOW");
-        #endif
-        digitalWrite(RELAYPIN,inData.sensorData.in.relay?HIGH:LOW);
-        break;
+      #ifdef HAS_RELAY
+        case RELAY:
+          #ifdef DEBUG_EVENT
+            Serial.print("Relay PIN:");
+            Serial.print(inData.sensorData.in.relay?"HIGH":"LOW");
+          #endif
+          digitalWrite(RELAYPIN,inData.sensorData.in.relay?HIGH:LOW);
+          break;
+      #endif
       default:
         Serial.print("*ERR UNK:");
         Serial.print(inData.sensorData.in.cmd); 

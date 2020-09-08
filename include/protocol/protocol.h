@@ -32,7 +32,7 @@ typedef enum {
   kUart = 'U',     // Uart
   kDht = 'H',      // DHT11
   kEncoder = 'E',  // Rotary Encoder
-  kSysCtr = '*'    // System Control 
+  kSysCtr = '*'    // System Control
 } device_t;
 
 typedef enum {
@@ -158,7 +158,7 @@ typedef struct __attribute__((packed, aligned(1))) {
 // SYSCTRL
 #ifdef HAS_SYSCTR
 typedef enum {
-  kReboot,
+  kSysReboot,
 } log_sysctr_t;
 
 typedef struct __attribute__((packed, aligned(1))) {

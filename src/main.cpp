@@ -20,6 +20,7 @@
 #include "hal/cmd_dht.h"
 #include "hal/cmd_encoder.h"
 #include "hal/cmd_log.h"
+#include "hal/cmd_sysctr.h"
 #include "protocol/protocol.h"
 #include "protocol/vector_utils.h"
 
@@ -339,14 +340,34 @@ void receiveI2CEvent(int numBytes) {
           }
           break;
 #endif
-        default:
-          memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-          outData.reponse.data.error.code = a8i2cG::error_t::kInvalidDevice;
-          sendOutData = true;
-          break;
-      }
+#ifdef HAS_SYSCTR
+        case a8i2cG::device_t::kSysCtr:
+          switch (inData.request.cmd) {
+            case a8i2cG::cmd_t::kSet:
+              switch (inData.request.data.set.cmd_sysctr_set.command) {
+                case a8i2cG::kSysReboot:
+                  Reset_AVR();
+                  break;
+                default:
+                  memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
+                  outData.reponse.device = a8i2cG::kSysCtr;
+                  outData.reponse.data.error.code =
+                      a8i2cG::error_t::kInvalidCommand;
+                  sendOutData = true;
+                  break;
+              }
+              break;
+          }
+      break;
+#endif
+      default:
+        memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
+        outData.reponse.data.error.code = a8i2cG::error_t::kInvalidDevice;
+        sendOutData = true;
+        break;
     }
   }
+}
 }
 
 void requestI2CEvent() { numI2CRequest++; }

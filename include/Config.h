@@ -1,14 +1,6 @@
 #pragma once
 
 /**
- * @brief Debug
- *
- */
-//#define DEBUG_I2C_OUT
-//#define DEBUG_I2C_IN
-//#define DEBUG_EVENT
-
-/**
  * @brief I2C Config
  *
  */
@@ -66,7 +58,39 @@
  *
  */
 #ifdef HAS_UART
-#define UART_MTU 64
+#define UART_MTU 32
 #else
 #define UART_MTU 1
+#endif
+
+/**
+ * @brief Log
+ *
+ */
+#if (defined(HAS_LOG_UART) || defined(HAS_LOG_SOFTUART)) && !defined(HAS_LOG)
+#define HAS_LOG
+#endif
+#ifdef HAS_LOG
+#if defined(HAS_LOG_UART) && defined(HAS_LOG_SOFTUART)
+#error "HAS_LOG_UART and HAS_LOG_SOFTUART can't both enabled"
+#endif
+#if defined(HAS_UART) && defined(HAS_LOG_UART)
+#error "HAS_UART and HAS_LOG can't both enabled"
+#endif
+#if defined(HAS_LOG_SOFTUART) && !defined(SOFTUART_TX_PIN)
+#error "SOFTUART_TX_PIN mut be defined for HAS_LOG_SOFTUART"
+#endif
+#define DEBUG_I2C_OUT
+#define DEBUG_I2C_IN
+#define DEBUG_EVENT
+#endif
+
+/**
+ * @brief System Control
+ *
+ * Control some AVR specific functionality as reboot
+ *
+ */
+#ifdef HAS_SYSCTR
+// specific functionalities
 #endif

@@ -28,10 +28,11 @@
 namespace a8i2cG {
 
 typedef enum {
-  kGpio = 'G',      // Generic GPIO
+  kGpio = 'G',     // Generic GPIO
   kUart = 'U',     // Uart
   kDht = 'H',      // DHT11
   kEncoder = 'E',  // Rotary Encoder
+  kSysCtr = '*'    // System Control 
 } device_t;
 
 typedef enum {
@@ -92,7 +93,7 @@ typedef struct __attribute__((packed, aligned(1))) {
 } cmd_uart_set_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t buffer[REQ_MTU - sizeof(uint8_t) - sizeof(bool)];
+  uint8_t buffer[MTU - sizeof(cmd_t) - sizeof(device_t) - sizeof(uint8_t) - sizeof(bool)];
   uint8_t buffer_len;
   bool overflow;
 } cmd_uart_write_t;
@@ -154,6 +155,18 @@ typedef struct __attribute__((packed, aligned(1))) {
 #endif
 //
 
+// SYSCTRL
+#ifdef HAS_SYSCTR
+typedef enum {
+  kReboot,
+} log_sysctr_t;
+
+typedef struct __attribute__((packed, aligned(1))) {
+  log_sysctr_t command;
+} cmd_sysctr_set_t;
+
+#endif
+
 typedef union {
 #ifdef HAS_GPIO
   cmd_gpio_set_t cmd_gpio_set;
@@ -166,6 +179,9 @@ typedef union {
 #endif
 #ifdef HAS_ROTARY_ENCODER
   cmd_encoder_set_t cmd_encoder_set;
+#endif
+#ifdef HAS_SYSCTR
+  cmd_sysctr_set_t cmd_sysctr_set;
 #endif
 } cmd_set_t;
 

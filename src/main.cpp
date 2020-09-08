@@ -19,6 +19,7 @@
 #include "Config.h"
 #include "hal/cmd_dht.h"
 #include "hal/cmd_encoder.h"
+#include "hal/cmd_log.h"
 #include "protocol/protocol.h"
 #include "protocol/vector_utils.h"
 
@@ -26,8 +27,7 @@ void requestI2CEvent();
 void receiveI2CEvent(int numBytes);
 
 void setup() {
-  // Serial.begin(9600);
-  //  while(!Serial);
+  log_speed(9600);
 
   //  Wire.setClock(10000);
   Wire.begin(I2CADDRESS);
@@ -59,10 +59,7 @@ a8i2cG::cmd_uart_data_t uart_single;
 void sendI2CPacket() {
 #ifdef DEBUG_I2C_OUT
   for (byte i = 0; i < sizeof(a8i2cG::I2C_Packet_t); i++) {
-    Serial.write(outData.I2CPacket[i]);
-    Serial.write(" [");
-    Serial.print(outData.I2CPacket[i], HEX);
-    Serial.write("] ");
+    log_d("-> %c [%X]", outData.I2CPacket[i], outData.I2CPacket[i]);
   }
 #endif
   size_t sent = Wire.write(outData.I2CPacket, sizeof(a8i2cG::I2C_Packet_t));
@@ -71,7 +68,7 @@ void sendI2CPacket() {
     numI2CRequest--;
   }
 #ifdef DEBUG_I2C_OUT
-  Serial.println(sent);
+  log_d("-> %d", sent);
 #endif
 }
 
@@ -136,40 +133,28 @@ void loop() {
 void receiveI2CEvent(int numBytes) {
   a8i2cG::I2C_Packet_t inData;
 #ifdef DEBUG_I2C_IN
-  Serial.print(F("IN I2C Event:"));
-  Serial.print(numBytes);
-  Serial.print(F(":"));
-  Serial.print(Wire.available());
-  Serial.print(F(":"));
-  Serial.print(sizeof(a8i2cG::I2C_Packet_t));
-  Serial.print(F(":"));
+  log_d("<- %d %d %d", numBytes, Wire.available(),
+        sizeof(a8i2cG::I2C_Packet_t));
 #endif
   if (numBytes > static_cast<int>(sizeof(a8i2cG::I2C_Packet_t))) {
     memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
     outData.reponse.data.error.code = a8i2cG::error_t::kInvalidPacketSize;
     sendOutData = true;
-#ifdef DEBUG_I2C_IN
-    Serial.print(F("*OWF*"));
-#endif
+    log_e("E IPS");
   } else {
     if (numBytes > 0) {
       Wire.setTimeout(500);
       size_t readed =
           Wire.readBytes(inData.I2CPacket, sizeof(a8i2cG::I2C_Packet_t));
       if (readed < static_cast<uint8_t>(numBytes)) {
-#ifdef DEBUG_I2C_IN
-        Serial.println("Wrong num data read!");
-#endif
+        log_w("E RS");
       }
 
 #ifdef DEBUG_I2C_IN
       for (size_t i = 0; i < readed; i++) {
-        Serial.write(inData.I2CPacket[i]);
-        Serial.write(" [");
-        Serial.print(inData.I2CPacket[i], HEX);
-        Serial.write("] ");
+        log_d("<- %d[%X]", inData.I2CPacket[i], inData.I2CPacket[i]);
       }
-      Serial.print(readed == numBytes ? F(":OK") : F(":KO"));
+      log_d("<- %c", readed == numBytes ? 'O' : 'F');
 #endif
       // Empty the bus!
       while (Wire.available()) Wire.read();

@@ -3,6 +3,7 @@
 
 #ifdef HAS_DHT
 #include <dht.h>
+#include <hal/cmd_log.h>
 #include <protocol/protocol.h>
 
 dht DHT;
@@ -24,10 +25,7 @@ void loopDHT(a8i2cG::cmd_dht11_data_t *data) {
   switch (chk) {
     case DHTLIB_OK:
 #ifdef DEBUG_EVENT
-      Serial.print("OK,\t");
-      Serial.print(DHT.humidity, 1);
-      Serial.print(",\t");
-      Serial.println(DHT.temperature, 1);
+      log_d("OK,\t%.1f\t%.1f", DHT.humidity, DHT.temperature);
 #endif
       temperature[tppos] = DHT.temperature;
       tppos = (tppos + 1) % data->set.samples;
@@ -42,13 +40,13 @@ void loopDHT(a8i2cG::cmd_dht11_data_t *data) {
       break;
 #ifdef DEBUG_EVENT
     case DHTLIB_ERROR_CHECKSUM:
-      Serial.println("Checksum error,\t");
+      log_e("Checksum error,\t");
       break;
     case DHTLIB_ERROR_TIMEOUT:
-      Serial.println("Time out error,\t");
+      log_e("Time out error,\t");
       break;
     default:
-      Serial.println("Unknown error,\t");
+      log_e("Unknown error,\t");
       break;
 #endif
   }

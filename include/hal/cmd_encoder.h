@@ -3,13 +3,12 @@
 
 #ifdef HAS_ROTARY_ENCODER
 #include <ClickEncoder.h>
+#include <hal/cmd_log.h>
 #include <protocol/protocol.h>
 int16_t oldEncPos, encPos;
 uint8_t buttonState;
 
-// ClickEncoder encoder(ENCODERCLKPIN, ENCODERDTPIN, ENCODERSWPIN, STEPS, LOW);
 ClickEncoder *encoder;
-// void timerIsr() { encoder->service(); }
 
 void setUpEncoder(a8i2cG::cmd_encoder_set_t set) {
   encoder = new ClickEncoder(set.clkpin, set.dtpin, set.swpin, set.steps, LOW);
@@ -26,15 +25,13 @@ void loopClickEncoder(a8i2cG::cmd_encoder_data_t *data) {
     data->encoder = encPos;
     oldEncPos = encPos;
 #ifdef DEBUG_EVENT
-    Serial.print(F("Encoder Value: "));
-    Serial.println(encPos);
+    log_d("EV: %d", encPos);
 #endif
   }
 
   if (buttonState != 0) {
 #ifdef DEBUG_EVENT
-    Serial.print("Button: ");
-    Serial.println(buttonState);
+    log_d("EB: %X", buttonState);
 #endif
     switch (buttonState) {
       case ClickEncoder::Open:  // 0

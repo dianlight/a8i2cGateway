@@ -14,8 +14,9 @@
  * @project A8i2cGateway
  *
  **/
-#include <Arduino.h>
-#include <new.h>
+//#include <Arduino.h>
+//#include <new.h>
+#include <stdbool.h>
 
 #ifdef HAS_UART
 #define MTU UART_MTU
@@ -24,8 +25,6 @@
 #else
 #define MTU 8
 #endif
-
-namespace a8i2cG {
 
 typedef enum {
   kGpio = 'G',     // Generic GPIO
@@ -49,10 +48,10 @@ typedef enum {
   kInvalidCommand = 'C',
   kMaxCapacityFull = 'F',
   kInvalidPin = 'I'
-} error_t;
+} a8g_error_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  error_t code;
+  a8g_error_t code;
 } error_data_t;
 
 // Digital Gpio
@@ -63,7 +62,7 @@ typedef enum { kDigital, kAnalog } gpio_type_t;
 typedef struct __attribute__((packed, aligned(1))) {
   uint8_t pin;
   gpio_type_t type;
-  byte mode;
+  char mode;
   uint16_t hz;  // 0 means 1 read. >0 continuos read and enqueue data in buffer
                 // (64bit buffer for dio e MTU for aio)
 } cmd_gpio_set_t;
@@ -80,8 +79,8 @@ typedef struct __attribute__((packed, aligned(1))) {
 typedef struct __attribute__((packed, aligned(1))) {
   cmd_gpio_set_t set;
   uint32_t last_read;
-  uint8_t values[MTU - sizeof(cmd_gpio_set_t) - sizeof(uint32_t) -
-                 sizeof(uint8_t)];
+  uint8_t
+      values[MTU - sizeof(cmd_gpio_set_t) - sizeof(uint32_t) - sizeof(uint8_t)];
   uint8_t values_len;
 } cmd_gpio_data_t;
 #endif
@@ -93,7 +92,8 @@ typedef struct __attribute__((packed, aligned(1))) {
 } cmd_uart_set_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t buffer[MTU - sizeof(cmd_t) - sizeof(device_t) - sizeof(uint8_t) - sizeof(bool)];
+  uint8_t buffer[MTU - sizeof(cmd_t) - sizeof(device_t) - sizeof(uint8_t) -
+                 sizeof(bool)];
   uint8_t buffer_len;
   bool overflow;
 } cmd_uart_write_t;
@@ -233,24 +233,22 @@ typedef struct __attribute__((packed, aligned(1))) {  // 64Byte
     cmd_set_t set;
     cmd_read_t read;
     cmd_write_t write;
-    char raw[];
+    char raw[sizeof(cmd_write_t)];
   } data;
 } request_t;
 
 typedef struct __attribute__((packed, aligned(1))) {  // 64Byte
   device_t device;                                    // 1byte
   bool error;
-  union data {
+  union data_1 {
     error_data_t error;
     cmd_data_t data;
-    char raw[];
+    char raw[sizeof(cmd_data_t)];
   } data;
 } response_t;
 
 typedef union __attribute__((packed, aligned(1))) {
   request_t request;
   response_t reponse;
-  byte I2CPacket[];
+  char I2CPacket[sizeof(response_t)];
 } I2C_Packet_t;
-
-}  // namespace a8i2cG

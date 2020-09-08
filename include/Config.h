@@ -1,6 +1,5 @@
 #pragma once
 
-
 /**
  * @brief Debug
  *
@@ -22,12 +21,9 @@
  *
  */
 #ifdef HAS_GPIO
-#ifndef MAX_DIO
-#define MAX_DIO 4
-#endif  // !MAX_DIO
-#ifndef MAX_AIO
-#define MAX_AIO 2
-#endif  // !MAX_AIO
+#ifndef MAX_GPIO
+#define MAX_GPIO 4
+#endif  // !MAX_GPIO
 #endif
 
 /**
@@ -48,10 +44,10 @@
  * @DEPRECATED
  *
  */
-//#define HAS_RELAY
-//#ifdef HAS_RELAY
+// #define HAS_RELAY
+// #ifdef HAS_RELAY
 //    #define RELAYPIN   PD6
-//#endif
+// #endif
 
 /**
  * @brief Rotary Encoder

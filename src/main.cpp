@@ -40,10 +40,8 @@ bool sendOutData = false;
 uint8_t numI2CRequest = 0;
 
 #ifdef HAS_GPIO
-a8i2cG::cmd_gpio_dio_data_t dio_vector[MAX_DIO];
-uint8_t dio_vector_configured = 0;
-a8i2cG::cmd_gpio_aio_data_t aio_vector[MAX_AIO];
-uint8_t aio_vector_configured = 0;
+a8i2cG::cmd_gpio_data_t gpio_vector[MAX_GPIO];
+uint8_t gpio_vector_configured = 0;
 #endif
 #ifdef HAS_DHT
 a8i2cG::cmd_dht11_data_t dht_vector[MAX_DHT];
@@ -82,37 +80,30 @@ void loop() {
   uint32_t cur = millis();
 
 #ifdef HAS_GPIO
-  // DIO
-  for (uint8_t p = 0; p < dio_vector_configured; p++) {
-    if (cur < dio_vector[p].last_read)
-      dio_vector[p].last_read = 0;  // Fix reset overflow every 70min.
-    if (dio_vector[p].set.hz == 0 && cur - dio_vector[p].last_read > 1000) {
-      dio_vector[p].values = digitalRead(dio_vector[p].set.pin) == HIGH ? 1 : 0;
-      dio_vector[p].values_len = 1;
-    } else if (cur - dio_vector[p].last_read > 1000 / dio_vector[p].set.hz) {
-      if (dio_vector[p].values_len < 64) dio_vector[p].values_len++;
-      dio_vector[p].last_read = cur;
-      dio_vector[p].values =
-          (dio_vector[p].values << 1) |
-                  (digitalRead(dio_vector[p].set.pin) == HIGH)
-              ? 1
-              : 0;
-    }
-  }
-  // AIO
-  for (uint8_t p = 0; p < aio_vector_configured; p++) {
-    if (cur < aio_vector[p].last_read)
-      aio_vector[p].last_read = 0;  // Fix reset overflow every 70min.
-    if (aio_vector[p].set.hz == 0 && cur - aio_vector[p].last_read > 1000) {
-      aio_vector[p].values[0] = analogRead(aio_vector[p].set.pin);
-      aio_vector[p].values_len = 1;
-    } else if (cur - aio_vector[p].last_read > 1000 / aio_vector[p].set.hz) {
-      if (aio_vector[p].values_len < 64) aio_vector[p].values_len++;
-      for (uint8_t i = 0; i < sizeof(aio_vector[p].values) - 2; i++) {
-        aio_vector[p].values[i + 1] = aio_vector[p].values[0];
+  // GPIO
+  for (uint8_t p = 0; p < gpio_vector_configured; p++) {
+    if (cur < gpio_vector[p].last_read)
+      gpio_vector[p].last_read = 0;  // Fix reset overflow every 70min.
+    if (gpio_vector[p].set.hz == 0 && cur - gpio_vector[p].last_read > 1000) {
+      if (gpio_vector[p].set.type == a8i2cG::kAnalog) {
+        gpio_vector[p].values[0] = analogRead(gpio_vector[p].set.pin);
+      } else {
+        gpio_vector[p].values[0] =
+            digitalRead(gpio_vector[p].set.pin) == HIGH ? 1 : 0;
       }
-      aio_vector[p].last_read = cur;
-      aio_vector[p].values[0] = analogRead(aio_vector[p].set.pin);
+      gpio_vector[p].values_len = 1;
+    } else if (cur - gpio_vector[p].last_read > 1000 / gpio_vector[p].set.hz) {
+      if (gpio_vector[p].values_len < 64) gpio_vector[p].values_len++;
+      for (uint8_t i = 0; i < sizeof(gpio_vector[p].values) - 2; i++) {
+        gpio_vector[p].values[i + 1] = gpio_vector[p].values[0];
+      }
+      gpio_vector[p].last_read = cur;
+      if (gpio_vector[p].set.type == a8i2cG::kAnalog) {
+        gpio_vector[p].values[0] = analogRead(gpio_vector[p].set.pin);
+      } else {
+        gpio_vector[p].values[0] =
+            digitalRead(gpio_vector[p].set.pin) == HIGH ? 1 : 0;
+      }
     }
   }
 #endif
@@ -186,113 +177,65 @@ void receiveI2CEvent(int numBytes) {
       // Do request work.
       switch (inData.request.device) {
 #ifdef HAS_GPIO
-        case a8i2cG::device_t::kDio:
+        case a8i2cG::device_t::kGpio:
           switch (inData.request.cmd) {
             case a8i2cG::cmd_t::kSet:
-              pinMode(inData.request.data.set.cmd_gpio_dio_set.pin,
-                      inData.request.data.set.cmd_gpio_dio_set.mode);
-              if (dio_vector_configured < MAX_DIO) {
-                int8_t fp = a8i2cG::findDIO(
-                    inData.request.data.set.cmd_gpio_dio_set.pin, dio_vector,
-                    MAX_DIO);
+              pinMode(inData.request.data.set.cmd_gpio_set.pin,
+                      inData.request.data.set.cmd_gpio_set.mode);
+              if (gpio_vector_configured < MAX_GPIO) {
+                int8_t fp =
+                    a8i2cG::findGPIO(inData.request.data.set.cmd_gpio_set.pin,
+                                     gpio_vector, MAX_GPIO);
                 if (fp >= 0) {
-                  memcpy(&dio_vector[fp].set,
-                         &inData.request.data.set.cmd_gpio_dio_set,
-                         sizeof(a8i2cG::cmd_gpio_dio_set_t));
+                  memcpy(&gpio_vector[fp].set,
+                         &inData.request.data.set.cmd_gpio_set,
+                         sizeof(a8i2cG::cmd_gpio_set_t));
                 } else {
-                  memcpy(&dio_vector[dio_vector_configured].set,
-                         &inData.request.data.set.cmd_gpio_dio_set,
-                         sizeof(a8i2cG::cmd_gpio_dio_set_t));
-                  dio_vector_configured++;
+                  memcpy(&gpio_vector[gpio_vector_configured].set,
+                         &inData.request.data.set.cmd_gpio_set,
+                         sizeof(a8i2cG::cmd_gpio_set_t));
+                  gpio_vector_configured++;
                 }
               } else {
                 memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-                outData.reponse.device = a8i2cG::kDio;
+                outData.reponse.device = a8i2cG::kGpio;
                 outData.reponse.data.error.code =
                     a8i2cG::error_t::kMaxCapacityFull;
                 sendOutData = true;
               }
               break;
             case a8i2cG::cmd_t::kRead: {
-              int8_t fp = a8i2cG::findDIO(
-                  inData.request.data.read.cmd_gpio_dio_read.pin, dio_vector,
-                  MAX_DIO);
+              int8_t fp =
+                  a8i2cG::findGPIO(inData.request.data.read.cmd_gpio_read.pin,
+                                   gpio_vector, gpio_vector_configured);
               memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-              outData.reponse.device = a8i2cG::kDio;
+              outData.reponse.device = a8i2cG::kGpio;
               if (fp >= 0) {
-                memcpy(&outData.reponse.data, &dio_vector[fp],
-                       sizeof(a8i2cG::cmd_gpio_dio_data_t));
-                dio_vector[fp].values = 0x00;
-                dio_vector[fp].values_len = 0;
+                memcpy(&outData.reponse.data, &gpio_vector[fp],
+                       sizeof(a8i2cG::cmd_gpio_data_t));
+                gpio_vector[fp].values_len = 0;
               } else {
                 outData.reponse.data.error.code = a8i2cG::error_t::kInvalidPin;
               }
               sendOutData = true;
               break;
             }
-            case a8i2cG::cmd_t::kWrite:
-              digitalWrite(inData.request.data.write.cmd_gpio_dio_write.pin,
-                           inData.request.data.write.cmd_gpio_dio_write.value);
-              break;
-            default:
-              memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-              outData.reponse.device = a8i2cG::kDio;
-              outData.reponse.data.error.code =
-                  a8i2cG::error_t::kInvalidCommand;
-              sendOutData = true;
-              break;
-          }
-          break;
-        case a8i2cG::device_t::kAio:
-          switch (inData.request.cmd) {
-            case a8i2cG::cmd_t::kSet:
-              pinMode(inData.request.data.set.cmd_gpio_aio_set.pin,
-                      inData.request.data.set.cmd_gpio_aio_set.mode);
-              if (aio_vector_configured < MAX_DIO) {
-                int8_t fp = a8i2cG::findAIO(
-                    inData.request.data.set.cmd_gpio_aio_set.pin, aio_vector,
-                    MAX_DIO);
-                if (fp >= 0) {
-                  memcpy(&aio_vector[fp].set,
-                         &inData.request.data.set.cmd_gpio_aio_set,
-                         sizeof(a8i2cG::cmd_gpio_aio_set_t));
-                } else {
-                  memcpy(&aio_vector[aio_vector_configured].set,
-                         &inData.request.data.set.cmd_gpio_aio_set,
-                         sizeof(a8i2cG::cmd_gpio_aio_set_t));
-                  aio_vector_configured++;
-                }
+            case a8i2cG::cmd_t::kWrite: {
+              int8_t fp =
+                  a8i2cG::findGPIO(inData.request.data.read.cmd_gpio_read.pin,
+                                   gpio_vector, gpio_vector_configured);
+              if (gpio_vector[fp].set.type == a8i2cG::kAnalog) {
+                analogWrite(inData.request.data.write.cmd_gpio_write.pin,
+                            inData.request.data.write.cmd_gpio_write.value);
               } else {
-                memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-                outData.reponse.device = a8i2cG::kAio;
-                outData.reponse.data.error.code =
-                    a8i2cG::error_t::kMaxCapacityFull;
-                sendOutData = true;
+                digitalWrite(inData.request.data.write.cmd_gpio_write.pin,
+                             inData.request.data.write.cmd_gpio_write.value);
               }
-              break;
-            case a8i2cG::cmd_t::kRead: {
-              int8_t fp = a8i2cG::findAIO(
-                  inData.request.data.read.cmd_gpio_aio_read.pin, aio_vector,
-                  MAX_AIO);
-              memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-              outData.reponse.device = a8i2cG::kAio;
-              if (fp >= 0) {
-                memcpy(&outData.reponse.data, &aio_vector[fp],
-                       sizeof(a8i2cG::cmd_gpio_aio_data_t));
-                aio_vector[fp].values_len = 0;
-              } else {
-                outData.reponse.data.error.code = a8i2cG::error_t::kInvalidPin;
-              }
-              sendOutData = true;
               break;
             }
-            case a8i2cG::cmd_t::kWrite:
-              digitalWrite(inData.request.data.write.cmd_gpio_aio_write.pin,
-                           inData.request.data.write.cmd_gpio_aio_write.value);
-              break;
             default:
               memset(&outData, 0x00, sizeof(a8i2cG::I2C_Packet_t));
-              outData.reponse.device = a8i2cG::kAio;
+              outData.reponse.device = a8i2cG::kGpio;
               outData.reponse.data.error.code =
                   a8i2cG::error_t::kInvalidCommand;
               sendOutData = true;
@@ -360,7 +303,8 @@ void receiveI2CEvent(int numBytes) {
           switch (inData.request.cmd) {
             case a8i2cG::cmd_t::kSet:
               setUpEncoder(inData.request.data.set.cmd_encoder_set);
-              memcpy(&encoder_single.set, &inData.request.data.set.cmd_encoder_set,
+              memcpy(&encoder_single.set,
+                     &inData.request.data.set.cmd_encoder_set,
                      sizeof(a8i2cG::cmd_encoder_data_t));
               break;
             case a8i2cG::cmd_t::kRead: {

@@ -6,17 +6,7 @@
 namespace a8i2cG {
 
 #ifdef HAS_GPIO
-int8_t findDIO(uint8_t pin, cmd_gpio_dio_data_t darray[MAX_DIO],
-                                   uint8_t max) {
-  for (uint8_t p = 0; p < max; p++) {
-    if (darray[p].set.pin == pin) {
-        return p;
-    }
-  }
-  return -1;
-}
-
-int8_t findAIO(uint8_t pin, cmd_gpio_aio_data_t darray[MAX_AIO],
+int8_t findGPIO(uint8_t pin, cmd_gpio_data_t darray[MAX_GPIO],
                                    uint8_t max) {
   for (uint8_t p = 0; p < max; p++) {
     if (darray[p].set.pin == pin) {

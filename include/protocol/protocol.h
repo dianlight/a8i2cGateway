@@ -17,15 +17,18 @@
 #include <Arduino.h>
 #include <new.h>
 
-#define MTU 64
-#define RES_MTU MTU - sizeof(device_t)
-#define REQ_MTU RES_MTU - sizeof(cmd_t)
+#ifdef HAS_UART
+#define MTU UART_MTU
+#elif defined(HAS_GPIO)
+#define MTU 14
+#else
+#define MTU 8
+#endif
 
 namespace a8i2cG {
 
 typedef enum {
-  kDio = 'G',      // Generic Digital GPIO
-  kAio = 'A',      // Generic Analog GPIO
+  kGpio = 'G',      // Generic GPIO
   kUart = 'U',     // Uart
   kDht = 'H',      // DHT11
   kEncoder = 'E',  // Rotary Encoder
@@ -51,46 +54,35 @@ typedef struct __attribute__((packed, aligned(1))) {
   error_t code;
 } error_data_t;
 
-// Digital Gpio/DIO
+// Digital Gpio
 #ifdef HAS_GPIO
+
+typedef enum { kDigital, kAnalog } gpio_type_t;
+
 typedef struct __attribute__((packed, aligned(1))) {
   uint8_t pin;
+  gpio_type_t type;
   byte mode;
-  uint16_t hz;  // 0 means 1 read. >0 continuos read and enqueue data in buffer (64bit buffer for dio e MTU for aio)
-} cmd_gpio_dio_set_t;
-
-typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
-  bool value;
-} cmd_gpio_dio_write_t;
-
-typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
-} cmd_gpio_dio_read_t;
-
-typedef struct __attribute__((packed, aligned(1))) {
-  cmd_gpio_dio_set_t set;
-  uint32_t last_read;
-  uint64_t values;
-  uint8_t values_len;
-} cmd_gpio_dio_data_t;
-
-// Analog Gpio
-typedef cmd_gpio_dio_set_t cmd_gpio_aio_set_t;
+  uint16_t hz;  // 0 means 1 read. >0 continuos read and enqueue data in buffer
+                // (64bit buffer for dio e MTU for aio)
+} cmd_gpio_set_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
   uint8_t pin;
   uint16_t value;
-} cmd_gpio_aio_write_t;
-
-typedef cmd_gpio_dio_read_t cmd_gpio_aio_read_t;
+} cmd_gpio_write_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  cmd_gpio_dio_set_t set;
+  uint8_t pin;
+} cmd_gpio_read_t;
+
+typedef struct __attribute__((packed, aligned(1))) {
+  cmd_gpio_set_t set;
   uint32_t last_read;
-  uint8_t values[RES_MTU-1];
+  uint8_t values[MTU - sizeof(cmd_gpio_set_t) - sizeof(uint32_t) -
+                 sizeof(uint8_t)];
   uint8_t values_len;
-} cmd_gpio_aio_data_t;
+} cmd_gpio_data_t;
 #endif
 
 // Uart
@@ -113,11 +105,7 @@ typedef cmd_uart_write_t cmd_uart_data_t;
 
 // DHT11
 #ifdef HAS_DHT
-typedef enum {
-  kDHT11,
-  kDHT12,
-  kDHT22
-} dht_model;
+typedef enum { kDHT11, kDHT12, kDHT22 } dht_model;
 
 typedef struct __attribute__((packed, aligned(1))) {
   uint8_t pin;
@@ -140,15 +128,14 @@ typedef struct __attribute__((packed, aligned(1))) {
 // Rotary Encoder
 #ifdef HAS_ROTARY_ENCODER
 typedef enum {
-      kOpen,
-      kClosed,
-      kPressed,
-      kHeld,
-      kReleased,
-      kClicked,
-      kDoubleClicked
+  kOpen,
+  kClosed,
+  kPressed,
+  kHeld,
+  kReleased,
+  kClicked,
+  kDoubleClicked
 } enc_button_state;
-
 
 typedef struct __attribute__((packed, aligned(1))) {
   uint8_t swpin, clkpin, dtpin;
@@ -168,61 +155,57 @@ typedef struct __attribute__((packed, aligned(1))) {
 //
 
 typedef union {
-  #ifdef HAS_GPIO
-  cmd_gpio_dio_set_t cmd_gpio_dio_set;
-  cmd_gpio_aio_set_t cmd_gpio_aio_set;
-  #endif
-  #ifdef HAS_UART
+#ifdef HAS_GPIO
+  cmd_gpio_set_t cmd_gpio_set;
+#endif
+#ifdef HAS_UART
   cmd_uart_set_t cmd_uart_set;
-  #endif
-  #ifdef HAS_DHT
+#endif
+#ifdef HAS_DHT
   cmd_dht11_set_t cmd_dht11_set;
-  #endif
-  #ifdef HAS_ROTARY_ENCODER
+#endif
+#ifdef HAS_ROTARY_ENCODER
   cmd_encoder_set_t cmd_encoder_set;
-  #endif
+#endif
 } cmd_set_t;
 
 typedef union {
-  #ifdef HAS_GPIO
-  cmd_gpio_dio_read_t cmd_gpio_dio_read;
-  cmd_gpio_aio_read_t cmd_gpio_aio_read;
-  #endif
-  #ifdef HAS_UART
+#ifdef HAS_GPIO
+  cmd_gpio_read_t cmd_gpio_read;
+#endif
+#ifdef HAS_UART
   cmd_uart_read_t cmd_uart_read;
-  #endif
-  #ifdef HAS_DHT
+#endif
+#ifdef HAS_DHT
   cmd_dht11_read_t cmd_dht11_read;
-  #endif
-  #ifdef HAS_ROTARY_ENCODER
+#endif
+#ifdef HAS_ROTARY_ENCODER
   cmd_encoder_read_t cmd_encoder_read;
-  #endif
+#endif
 } cmd_read_t;
 
 typedef union {
-  #ifdef HAS_GPIO
-  cmd_gpio_dio_write_t cmd_gpio_dio_write;
-  cmd_gpio_aio_write_t cmd_gpio_aio_write;
-  #endif
-  #ifdef HAS_UART
+#ifdef HAS_GPIO
+  cmd_gpio_write_t cmd_gpio_write;
+#endif
+#ifdef HAS_UART
   cmd_uart_write_t cmd_uart_write;
-  #endif
+#endif
 } cmd_write_t;
 
 typedef union {
-  #ifdef HAS_GPIO
-  cmd_gpio_dio_data_t cmd_gpio_dio_data;
-  cmd_gpio_aio_data_t cmd_gpio_aio_data;
-  #endif
-  #ifdef HAS_UART
+#ifdef HAS_GPIO
+  cmd_gpio_data_t cmd_gpio_data;
+#endif
+#ifdef HAS_UART
   cmd_uart_data_t cmd_uart_data;
-  #endif
-  #ifdef HAS_DHT
+#endif
+#ifdef HAS_DHT
   cmd_dht11_data_t cmd_dht11_data;
-  #endif
-  #ifdef HAS_ROTARY_ENCODER
+#endif
+#ifdef HAS_ROTARY_ENCODER
   cmd_encoder_data_t cmd_encoder_data;
-  #endif
+#endif
 } cmd_data_t;
 
 //

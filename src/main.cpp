@@ -134,19 +134,19 @@ void loop() {
 void receiveI2CEvent(int numBytes) {
   I2C_Packet_t inData;
 #ifdef DEBUG_I2C_IN
-  log_d("<- %d %d %d", numBytes, Wire.available(),
-        sizeof(I2C_Packet_t));
+  log_d("<- %d %d %d", numBytes, Wire.available(), sizeof(I2C_Packet_t));
 #endif
   if (numBytes > static_cast<int>(sizeof(I2C_Packet_t))) {
     memset(&outData, 0x00, sizeof(I2C_Packet_t));
+    outData.reponse.rescode = -1;
+
     outData.reponse.data.error.code = a8g_error_t::kInvalidPacketSize;
     sendOutData = true;
     log_e("E IPS");
   } else {
     if (numBytes > 0) {
       Wire.setTimeout(500);
-      size_t readed =
-          Wire.readBytes(inData.I2CPacket, sizeof(I2C_Packet_t));
+      size_t readed = Wire.readBytes(inData.I2CPacket, sizeof(I2C_Packet_t));
       if (readed < static_cast<uint8_t>(numBytes)) {
         log_w("E RS");
       }
@@ -161,9 +161,11 @@ void receiveI2CEvent(int numBytes) {
       while (Wire.available()) Wire.read();
 
       // Do request work.
+      memset(&outData, 0x00, sizeof(I2C_Packet_t));
       switch (inData.request.device) {
 #ifdef HAS_GPIO
         case device_t::kGpio:
+          outData.reponse.device = kGpio;
           switch (inData.request.cmd) {
             case cmd_t::kSet:
               pinMode(inData.request.data.set.cmd_gpio_set.pin,
@@ -176,34 +178,32 @@ void receiveI2CEvent(int numBytes) {
                   memcpy(&gpio_vector[fp].set,
                          &inData.request.data.set.cmd_gpio_set,
                          sizeof(cmd_gpio_set_t));
+                  outData.reponse.rescode = fp;
                 } else {
                   memcpy(&gpio_vector[gpio_vector_configured].set,
                          &inData.request.data.set.cmd_gpio_set,
                          sizeof(cmd_gpio_set_t));
+                  outData.reponse.rescode = gpio_vector_configured;
                   gpio_vector_configured++;
                 }
               } else {
-                memset(&outData, 0x00, sizeof(I2C_Packet_t));
-                outData.reponse.device = kGpio;
-                outData.reponse.data.error.code =
-                    a8g_error_t::kMaxCapacityFull;
-                sendOutData = true;
+                outData.reponse.rescode = -1;
+                outData.reponse.data.error.code = a8g_error_t::kMaxCapacityFull;
               }
               break;
             case cmd_t::kRead: {
               int8_t fp =
                   a8i2cG::findGPIO(inData.request.data.read.cmd_gpio_read.pin,
                                    gpio_vector, gpio_vector_configured);
-              memset(&outData, 0x00, sizeof(I2C_Packet_t));
-              outData.reponse.device = kGpio;
               if (fp >= 0) {
                 memcpy(&outData.reponse.data, &gpio_vector[fp],
                        sizeof(cmd_gpio_data_t));
                 gpio_vector[fp].values_len = 0;
+                outData.reponse.rescode = fp;
               } else {
+                outData.reponse.rescode = -1;
                 outData.reponse.data.error.code = a8g_error_t::kInvalidPin;
               }
-              sendOutData = true;
               break;
             }
             case cmd_t::kWrite: {
@@ -217,20 +217,21 @@ void receiveI2CEvent(int numBytes) {
                 digitalWrite(inData.request.data.write.cmd_gpio_write.pin,
                              inData.request.data.write.cmd_gpio_write.value);
               }
+              outData.reponse.rescode = fp;
               break;
             }
             default:
-              memset(&outData, 0x00, sizeof(I2C_Packet_t));
-              outData.reponse.device = kGpio;
-              outData.reponse.data.error.code =
-                  a8g_error_t::kInvalidCommand;
-              sendOutData = true;
+              outData.reponse.rescode = -1;
+              outData.reponse.data.error.code = a8g_error_t::kInvalidCommand;
               break;
           }
+          sendOutData = true;
           break;
 #endif
 #ifdef HAS_DHT
         case device_t::kDht:
+          memset(&outData, 0x00, sizeof(I2C_Packet_t));
+          outData.reponse.device = kDht;
           switch (inData.request.cmd) {
             case cmd_t::kSet:
               if (dht_vector_configured < MAX_DHT &&
@@ -243,136 +244,137 @@ void receiveI2CEvent(int numBytes) {
                   memcpy(&dht_vector[fp].set,
                          &inData.request.data.set.cmd_dht11_set,
                          sizeof(cmd_dht11_set_t));
+                  outData.reponse.rescode = fp;
+       
                 } else {
                   memcpy(&dht_vector[dht_vector_configured].set,
                          &inData.request.data.set.cmd_dht11_set,
                          sizeof(cmd_dht11_set_t));
+                  outData.reponse.rescode = dht_vector_configured;
                   dht_vector_configured++;
                 }
               } else {
-                memset(&outData, 0x00, sizeof(I2C_Packet_t));
-                outData.reponse.device = kDht;
-                outData.reponse.data.error.code =
-                    a8g_error_t::kMaxCapacityFull;
-                sendOutData = true;
+                outData.reponse.rescode = -1;
+                outData.reponse.data.error.code = a8g_error_t::kMaxCapacityFull;
               }
               break;
             case cmd_t::kRead: {
               int8_t fp =
                   a8i2cG::findDHT(inData.request.data.read.cmd_dht11_read.pin,
                                   dht_vector, MAX_DHT);
-              memset(&outData, 0x00, sizeof(I2C_Packet_t));
-              outData.reponse.device = kDht;
               if (fp >= 0) {
                 memcpy(&outData.reponse.data, &dht_vector[fp],
                        sizeof(cmd_dht11_data_t));
                 dht_vector[fp].humidity = __FLT_MIN__;
                 dht_vector[fp].temperature = __FLT_MIN__;
+                outData.reponse.rescode = fp;
               } else {
+                outData.reponse.rescode = -1;
                 outData.reponse.data.error.code = a8g_error_t::kInvalidPin;
               }
-              sendOutData = true;
               break;
             }
             default:
-              memset(&outData, 0x00, sizeof(I2C_Packet_t));
-              outData.reponse.device = kDht;
-              outData.reponse.data.error.code =
-                  a8g_error_t::kInvalidCommand;
-              sendOutData = true;
+              outData.reponse.rescode = -1;
+              outData.reponse.data.error.code = a8g_error_t::kInvalidCommand;
               break;
           }
+          sendOutData = true;
           break;
 #endif
 #ifdef HAS_ROTARY_ENCODER
         case device_t::kEncoder:
+          memset(&outData, 0x00, sizeof(I2C_Packet_t));
+          outData.reponse.device = kEncoder;
           switch (inData.request.cmd) {
             case cmd_t::kSet:
               setUpEncoder(inData.request.data.set.cmd_encoder_set);
               memcpy(&encoder_single.set,
                      &inData.request.data.set.cmd_encoder_set,
                      sizeof(cmd_encoder_data_t));
+              outData.reponse.rescode = 1;
               break;
             case cmd_t::kRead: {
               memcpy(&outData.reponse.data, &encoder_single,
                      sizeof(cmd_encoder_data_t));
-              outData.reponse.device = kEncoder;
               encoder_single.select = kOpen;
-              sendOutData = true;
+              outData.reponse.rescode = 1;
               break;
             }
             default:
-              memset(&outData, 0x00, sizeof(I2C_Packet_t));
-              outData.reponse.device = kEncoder;
-              outData.reponse.data.error.code =
-                  a8g_error_t::kInvalidCommand;
-              sendOutData = true;
+              outData.reponse.rescode = -1;
+              outData.reponse.data.error.code = a8g_error_t::kInvalidCommand;
               break;
           }
+          sendOutData = true;
           break;
 #endif
 #ifdef HAS_UART
         case device_t::kUart:
+              memset(&outData, 0x00, sizeof(I2C_Packet_t));
+              outData.reponse.device = kUart;
           switch (inData.request.cmd) {
             case cmd_t::kSet:
               Serial.begin(inData.request.data.set.cmd_uart_set.speed);
+              outData.reponse.rescode = 1;
               break;
             case cmd_t::kRead: {
               memcpy(&outData.reponse.data, &uart_single,
                      sizeof(cmd_uart_data_t));
-              outData.reponse.device = kUart;
               uart_single.buffer_len = 0x00;
               uart_single.overflow = false;
-              sendOutData = true;
+              outData.reponse.rescode = 1;
               break;
             }
             case cmd_t::kWrite:
               Serial.write(inData.request.data.write.cmd_uart_write.buffer,
                            inData.request.data.write.cmd_uart_write.buffer_len);
+              outData.reponse.rescode = 1;
               break;
             default:
-              memset(&outData, 0x00, sizeof(I2C_Packet_t));
-              outData.reponse.device = kUart;
-              outData.reponse.data.error.code =
-                  a8g_error_t::kInvalidCommand;
-              sendOutData = true;
+              outData.reponse.rescode = -1;
+              outData.reponse.data.error.code = a8g_error_t::kInvalidCommand;
               break;
           }
+          sendOutData = true;
           break;
 #endif
 #ifdef HAS_SYSCTR
         case device_t::kSysCtr:
+          memset(&outData, 0x00, sizeof(I2C_Packet_t));
+          outData.reponse.device = kSysCtr;
           switch (inData.request.cmd) {
             case cmd_t::kSet:
               switch (inData.request.data.set.cmd_sysctr_set.command) {
                 case kSysReboot:
                   Reset_AVR();
+                  outData.reponse.rescode = 1;
                   break;
                 default:
-                  memset(&outData, 0x00, sizeof(I2C_Packet_t));
-                  outData.reponse.device = kSysCtr;
+                  outData.reponse.rescode = -1;
                   outData.reponse.data.error.code =
                       a8g_error_t::kInvalidCommand;
-                  sendOutData = true;
                   break;
               }
-            break;
-          default:
-            memset(&outData, 0x00, sizeof(I2C_Packet_t));
-            outData.reponse.data.error.code = a8g_error_t::kInvalidCommand;
-            sendOutData = true;
-            break;
+              break;
+            default:
+              outData.reponse.rescode = -1;
+              outData.reponse.data.error.code = a8g_error_t::kInvalidCommand;
+              sendOutData = true;
+              break;
           }
-      break;
+          sendOutData = true;
+          break;
 #endif
-      default:
-        memset(&outData, 0x00, sizeof(I2C_Packet_t));
-        outData.reponse.data.error.code = a8g_error_t::kInvalidDevice;
-        sendOutData = true;
-        break;
+        default:
+          memset(&outData, 0x00, sizeof(I2C_Packet_t));
+          outData.reponse.rescode = -1;
+          outData.reponse.data.error.code = a8g_error_t::kInvalidDevice;
+          sendOutData = true;
+          break;
+      }
     }
   }
-}
 }
 
 void requestI2CEvent() { numI2CRequest++; }

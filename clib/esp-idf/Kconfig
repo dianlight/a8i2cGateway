@@ -1,0 +1,62 @@
+menu "A8 I2C Gateway Configuration"
+
+    config A8I2CGW_I2C_ADDRESS
+        hex "Address of the gateway on I2C bus"
+        default 0x08
+        help
+           The I2C address for the Gateway
+
+    config A8I2CGW_GPIO_MAX
+        int "Max number of GPIO available on I2C"
+        default 9
+        help
+            Max number of GPIO available in configuration.
+            0 = no GPIO support on Gateway
+
+    config A8I2CGW_SYSCTR
+        bool "Enable Gateway system control over I2C"
+        default Y
+        help
+            If enabled the Gateway can be controlled from I2C.
+
+    config A8I2CGW_UART0
+        bool "Enable UART0 over I2C"
+        default N
+        help
+            If enabled the Gateway UART0 is available on I2C protocol.
+
+    config A8I2CGW_DHT_MAX
+        int "Max number of DHT sensor available on I2C"
+        default 0
+        help
+            Max number of DHT sensors available in configuration.
+            0 = no DHT sensor support on Gateway
+
+    config A8I2CGW_ROTARY_ENCODER
+        bool "Enable ROTARY_ENCODER over I2C"
+        default N
+        help
+            If enabled the a Rotary Encoder can be attached on Gateway 
+            and used on I2C protocol.
+
+    config A8I2CGW_DEBUG_LOG_UART0
+        bool "Enable DEBUG on Gateway to UART0"
+        default N
+        depends on !A8I2CGW_UART0
+        help
+            If enabled the a Gateway post log message on UART0 
+
+    config A8I2CGW_DEBUG_LOG_SOFTUART
+        bool "Enable DEBUG on Gateway to SoftUart"
+        default N
+        help
+            If enabled the a Gateway post log message on SoftUART 
+
+    config A8I2CGW_DEBUG_LOG_SOFTUART_TX_PIN
+        int "Pin for SoftUart TX"
+        default 2
+        depends on A8I2CGW_DEBUG_LOG_SOFTUART
+        help
+            Set SoftUART TX Pin
+            
+endmenu

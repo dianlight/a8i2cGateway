@@ -11,11 +11,11 @@ dht DHT;
 float temperature[HAS_DHT_MAX_TEMP_COUNT];
 int8_t tppos = 1;
 
-void loopDHT(a8i2cG::cmd_dht11_data_t *data) {
+void loopDHT(cmd_dht11_data_t *data) {
   int chk;
   switch (data->set.model) {
-    case a8i2cG::kDHT11:
-    case a8i2cG::kDHT12:
+    case kDHT11:
+    case kDHT12:
       chk = DHT.read11(data->set.pin);
       break;
     default:

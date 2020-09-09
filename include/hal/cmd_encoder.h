@@ -10,13 +10,13 @@ uint8_t buttonState;
 
 ClickEncoder *encoder;
 
-void setUpEncoder(a8i2cG::cmd_encoder_set_t set) {
+void setUpEncoder(cmd_encoder_set_t set) {
   encoder = new ClickEncoder(set.clkpin, set.dtpin, set.swpin, set.steps, LOW);
   encoder->setAccelerationEnabled(true);
   oldEncPos = -1;
 }
 
-void loopClickEncoder(a8i2cG::cmd_encoder_data_t *data) {
+void loopClickEncoder(cmd_encoder_data_t *data) {
   encoder->service();
   encPos += encoder->getValue();
   buttonState = encoder->getButton();
@@ -35,25 +35,25 @@ void loopClickEncoder(a8i2cG::cmd_encoder_data_t *data) {
 #endif
     switch (buttonState) {
       case ClickEncoder::Open:  // 0
-        data->select = a8i2cG::kOpen;
+        data->select = kOpen;
         break;
       case ClickEncoder::Closed:  // 1
-        data->select = a8i2cG::kClosed;
+        data->select = kClosed;
         break;
       case ClickEncoder::Pressed:  // 2
-        data->select = a8i2cG::kPressed;
+        data->select = kPressed;
         break;
       case ClickEncoder::Held:  // 3
-        data->select = a8i2cG::kHeld;
+        data->select = kHeld;
         break;
       case ClickEncoder::Released:  // 4
-        data->select = a8i2cG::kReleased;
+        data->select = kReleased;
         break;
       case ClickEncoder::Clicked:  // 5
-        data->select = a8i2cG::kClicked;
+        data->select = kClicked;
         break;
       case ClickEncoder::DoubleClicked:  // 6
-        data->select = a8i2cG::kDoubleClicked;
+        data->select = kDoubleClicked;
         break;
     }
   }

@@ -144,7 +144,6 @@ typedef struct __attribute__((packed, aligned(1))) {
 } cmd_encoder_set_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t swpin;
 } cmd_encoder_read_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
@@ -239,7 +238,7 @@ typedef struct __attribute__((packed, aligned(1))) {  // 64Byte
 
 typedef struct __attribute__((packed, aligned(1))) {  // 64Byte
   device_t device;                                    // 1byte
-  bool error;
+  int8_t rescode;                                     // <0 is an error code
   union data_1 {
     error_data_t error;
     cmd_data_t data;

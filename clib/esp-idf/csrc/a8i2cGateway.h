@@ -46,6 +46,7 @@ int8_t a8i2cGw_cmd_set(device_t device, cmd_set_t set);
 int8_t setupGpio(cmd_gpio_set_t set);
 int8_t writeGpio(uint8_t pin, uint16_t value);
 int8_t readGpio(uint8_t pin, cmd_gpio_data_t *data);
+int16_t readLastGpio(uint8_t pin);
 #endif
 
 #ifdef HAS_UART

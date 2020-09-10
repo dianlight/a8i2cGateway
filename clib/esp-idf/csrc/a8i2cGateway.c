@@ -106,6 +106,16 @@ int8_t readGpio(uint8_t pin, cmd_gpio_data_t* data) {
   rdata.pin = pin;
   return a8i2cGw_cmd_read(kGpio, (cmd_read_t)rdata, (cmd_data_t *)data);
 }
+int16_t readLastGpio(uint8_t pin) {
+  cmd_gpio_read_t rdata;
+  cmd_gpio_data_t data;
+  rdata.pin = pin;
+  if( a8i2cGw_cmd_read(kGpio, (cmd_read_t)rdata, (cmd_data_t *)&data) >= 0){
+    return data.values[0];
+  } else {
+    return -1;
+  }
+}
 #endif
 
 // UART

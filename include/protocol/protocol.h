@@ -54,26 +54,81 @@ typedef struct __attribute__((packed, aligned(1))) {
   a8g_error_t code;
 } error_data_t;
 
+// ATMEGA8 PIN
+typedef enum {
+  kPinSpiSS   = 10,
+  kPinSpiMosi = 11,
+  kPinSpiMiso = 12,
+  kPinSpiSck  = 13,
+
+  kPinSda = 18,
+  kPinScl = 19,
+
+  kPinA0 = 14,
+  kPinA1 = 15,
+  kPinA2 = 16,
+  kPinA3 = 17,
+  kPinA4 = 18,
+  kPinA5 = 19,
+  kPinA6 = 20,
+  kPinA7 = 21,
+
+  kPinPC0 = 14,
+  kPinPC1 = 15,
+  kPinPC2 = 16,
+  kPinPC3 = 17,
+  kPinPC4 = 18,
+  kPinPC5 = 19,
+  kPinPC6 = 22,  // Only if restet pin is disabled
+
+  kPinPD0 = 0,
+  kPinPD1 = 1,
+  kPinPD2 = 2,
+  kPinPD3 = 3,
+  kPinPD4 = 4,
+  kPinPD5 = 5,
+  kPinPD6 = 6,
+  kPinPD7 = 7,
+
+  kPinPB0 = 8,
+  kPinPB1 = 9,
+  kPinPB2 = 10,
+  kPinPB3 = 11,
+  kPinPB4 = 12,
+  kPinPB5 = 13,
+  kPinPB6 = 20,   // Only with internal oscillator enabled
+  kPinPB7 = 21,   // Only with internal oscillator enabled
+
+} a8g_pin_t;
+
 // Digital Gpio
 #ifdef HAS_GPIO
+
+typedef enum {
+  kPinModeInput = 0x0,
+  kPinModeOutput = 0x1,
+  kPinModeInputPullup = 0x2
+} a8g_pin_mode_t;
+
+
 
 typedef enum { kDigital, kAnalog } gpio_type_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
+  a8g_pin_t pin;
   gpio_type_t type;
-  char mode;
+  a8g_pin_mode_t mode;
   uint16_t hz;  // 0 means 1 read. >0 continuos read and enqueue data in buffer
                 // (64bit buffer for dio e MTU for aio)
 } cmd_gpio_set_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
+  a8g_pin_t pin;
   uint16_t value;
 } cmd_gpio_write_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
+  a8g_pin_t pin;
 } cmd_gpio_read_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
@@ -109,14 +164,14 @@ typedef cmd_uart_write_t cmd_uart_data_t;
 typedef enum { kDHT11, kDHT12, kDHT22 } dht_model;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
+  a8g_pin_t pin;
   dht_model model;
   uint8_t samples;
   float correction;
 } cmd_dht11_set_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t pin;
+  a8g_pin_t pin;
 } cmd_dht11_read_t;
 
 typedef struct __attribute__((packed, aligned(1))) {
@@ -139,7 +194,7 @@ typedef enum {
 } enc_button_state;
 
 typedef struct __attribute__((packed, aligned(1))) {
-  uint8_t swpin, clkpin, dtpin;
+  a8g_pin_t swpin, clkpin, dtpin;
   uint8_t steps;
 } cmd_encoder_set_t;
 
